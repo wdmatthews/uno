@@ -1,0 +1,17 @@
+{
+  "name": "uno",
+  "version": "1.0.0",
+  "description": "A Socket.io implementation of the classic Uno card game.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Wesley Matthews",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.17.1",
+    "http": "^0.0.1-security",
+    "mongodb": "^3.6.5",
+    "socket.io": "^4.0.0"
+  }
+}

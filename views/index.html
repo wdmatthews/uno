@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+  <title>Uno</title>
+  
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@5.x/css/materialdesignicons.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app">
+    <v-app>
+      <!-- App Bar -->
+      <v-app-bar app v-if="room">
+        <p v-text="room" class="my-auto"></p>
+        <v-btn
+          color="error"
+          elevation="2"
+          @click="leaveRoom"
+          class="ml-auto"
+        >Leave</v-btn>
+      </v-app-bar>
+      <v-main>
+        <template v-if="room && gameStarted">
+          <!-- Participants Table -->
+          <v-simple-table class="rounded-0">
+            <template v-slot:default>
+              <tbody>
+                <tr
+                  v-for="(participant, i) in participants"
+                  :key="i"
+                >
+                  <td :class="{ 'blue--text': participant.id === currentTurn }">
+                    <v-icon v-if="participant.id === currentTurn">
+                      mdi-{{ turnDirection > 0 ? 'chevron-down' : 'chevron-up' }}
+                    </v-icon>
+                    {{ participant.name }}
+                  </td>
+                  <td v-if="participant.cardCount != 1">{{ participant.cardCount }} Cards</td>
+                  <td v-else>Uno!</td>
+                </tr>
+              </tbody>
+            </template>
+          </v-simple-table>
+          <!-- Pile and Draw Cards -->
+          <div class="d-flex center">
+            <v-card
+              :color="pileCard.color"
+              class="ma-4"
+              height="150"
+              width="100"
+            >
+              <v-row
+                no-gutters
+                class="fill-height"
+                align="center"
+                justify="center"
+              >
+                <p
+                  v-if="pileCard.number != null"
+                  v-text="pileCard.number"
+                  class="my-auto no-select font-weight-bold"
+                  :class="{ 'text-h1': pileCard.number.length != 2, 'text-h3': pileCard.number.length == 2 }"
+                ></p>
+                <v-icon
+                  v-if="pileCard.icon"
+                  size="96"
+                >mdi-{{ pileCard.icon }}</v-icon>
+              </v-row>
+            </v-card>
+            <v-card
+              color="secondary"
+              class="ma-4"
+              height="150"
+              width="100"
+            >
+              <v-row
+                no-gutters
+                class="fill-height"
+                align="center"
+                justify="center"
+              >
+                <p class="my-auto text-h1 no-select font-weight-bold">?</p>
+              </v-row>
+            </v-card>
+          </div>
+          <!-- Action Buttons -->
+          <div class="d-flex center-x bottom" style="flex-direction: column;">
+            <div v-show="isMyTurn">
+              <p class="text-center text-h4 font-weight-bold mb-4">It's your turn!</p>
+            </div>
+            <v-row no-gutters>
+              <v-spacer></v-spacer>
+              <v-btn
+                color="primary"
+                elevation="2"
+                fab
+                @click="showCards = true"
+                class="mr-4"
+              >
+                <v-icon>mdi-cards</v-icon>
+              </v-btn>
+              <v-btn
+                color="error"
+                elevation="2"
+                fab
+                @click="drawCardDialog = true"
+                :disabled="!isMyTurn || anyCardsValid"
+              >
+                <v-icon>mdi-plus</v-icon>
+              </v-btn>
+              <v-spacer></v-spacer>
+            </v-row>
+          </div>
+          <!-- Draw a Card Dialog -->
+          <v-dialog v-model="drawCardDialog" max-width="200">
+            <v-card>
+              <v-card-title>
+                <p class="text-center mx-auto my-0">Draw a card?</p>
+              </v-card-title>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn
+                  text
+                  @click="drawCardDialog = false"
+                >No</v-btn>
+                <v-btn
+                  color="primary"
+                  text
+                  @click="drawCard"
+                >Yes</v-btn>
+                <v-spacer></v-spacer>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+          <!-- Cards List -->
+          <v-bottom-sheet v-model="showCards">
+            <v-sheet class="pb-4">
+              <v-slide-group
+                v-model="selectedCard"
+                class="pa-4 card-container"
+                center-active
+                show-arrows
+              >
+                <v-slide-item
+                  v-for="(card, i) in cards"
+                  :key="i"
+                  v-slot="{ active, toggle }"
+                  :disabled="!cardIsValid(card)"
+                >
+                  <v-card
+                    :color="card.color"
+                    class="ma-4"
+                    :class="{ 'selected-card': active }"
+                    height="150"
+                    width="100"
+                    @click="toggle"
+                    :style="{ 'opacity': cardIsValid(card) ? 1 : 0.25 }"
+                  >
+                    <v-row
+                      no-gutters
+                      class="fill-height"
+                      align="center"
+                      justify="center"
+                    >
+                      <p
+                        v-if="card.number != null"
+                        v-text="card.number"
+                        class="my-auto no-select font-weight-bold"
+                        :class="{ 'text-h1': card.number.length != 2, 'text-h3': card.number.length == 2 }"
+                      ></p>
+                      <v-icon
+                        v-if="card.icon"
+                        size="96"
+                      >mdi-{{ card.icon }}</v-icon>
+                    </v-row>
+                  </v-card>
+                </v-slide-item>
+              </v-slide-group>
+              <v-btn
+                color="primary"
+                elevation="2"
+                @click="playCard"
+                class="d-block mx-auto"
+                :disabled="selectedCard == null || !isMyTurn || !cardIsValid(cards[selectedCard])"
+              >Play</v-btn>
+            </v-sheet>
+          </v-bottom-sheet>
+          <!-- Winner Dialog -->
+          <v-dialog v-model="showWinnerDialog" max-width="200" persistent>
+            <v-card>
+              <v-card-title>
+                <p class="text-center mx-auto my-0">{{ winner }} win{{ winner === 'You' ? '' : 's' }}!</p>
+              </v-card-title>
+              <v-card-actions class="pb-4">
+                <v-btn
+                  color="error"
+                  elevation="2"
+                  @click="leaveRoom"
+                  class="mx-auto"
+                >Leave</v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+        </template>
+        <template v-if="room && !gameStarted">
+          <v-btn
+            color="primary"
+            elevation="2"
+            @click="ready"
+            class="center"
+            :disabled="isReady"
+          >{{ isReady ? 'Ready' : "I'm Ready" }}</v-btn>
+        </template>
+        <template v-if="!room">
+          <!-- Join error. -->
+          <v-alert
+            v-model="showJoinRoomError"
+            dismissible
+            type="error"
+            class="ma-4"
+            @click="showJoinRoomError = false"
+            v-text="joinRoomError"
+          ></v-alert>
+          <!-- Join Form -->
+          <v-card class="center">
+            <v-card-text>
+              <v-form v-model="roomCodeValid" @submit.prevent="joinRoom">
+                <v-text-field
+                  v-model="roomCode"
+                  :rules="roomCodeRules"
+                  label="Room Code"
+                  placeholder="abcdef"
+                  required
+                ></v-text-field>
+                <v-btn
+                  color="primary"
+                  elevation="2"
+                  @click="joinRoom"
+                  :disabled="!roomCodeValid"
+                  class="d-block mx-auto mt-4"
+                >Join</v-btn>
+              </v-form>
+            </v-card-text>
+          </v-card>
+        </template>
+      </v-main>
+    </v-app>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+  <script src="/js/vue-config.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/socket-client.js"></script>
+</body>
+</html>
